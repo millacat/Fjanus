@@ -1,2 +1,2 @@
 # Fjanus
-*Janus* interpreter implemented in *F#*
+__Janus__ interpreter implemented in __F#__.
