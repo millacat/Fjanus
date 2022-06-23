@@ -1,2 +1,2 @@
 # Fjanus
-janus interpreter implemented in F#
+*Janus* interpreter implemented in *F#*

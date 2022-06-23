@@ -1,8 +1,9 @@
-module test
+module Test
 
 open JanusInterpreter
-open JanusAST
-open JanusInterpreter.Computation
+open Computation
+open AST
+open Types
 
 
 let prn' s x res = printfn "%s = %A is %b" s x res
@@ -203,5 +204,12 @@ let r = RecordD ("r",
                  ])
 let vdsrec = r::vds
 let prec = Program (MainProc (vdsrec, []), [])
-runProgram prec |> prn "Record: "
+runProgram prec |> prn "Record with  record in: "
 
+let addRecRecVar = Assign (AddEq, Rec ("r", (Rec ("rinternal", Var "y"))), Const (Int 10))
+let precAdd = Program (MainProc (vdsrec, [addRecRecVar]), [])
+runProgram precAdd |> prn "r.rinternal.y += 10;"
+
+let procRec = [ {name = "p"; vdecls = []; stmts = [addRecRecVar] } ]
+let pUncallRec = Program (MainProc (vdsrec, [Uncall "p"]), procRec)
+runProgram pUncallRec |> prn "Uncall p; (p := r.rinternal.y += 10);"

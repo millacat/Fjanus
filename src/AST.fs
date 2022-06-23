@@ -1,4 +1,5 @@
-module JanusAST
+module AST
+
 (* Values *)
 type Int = int32
 type Value =
@@ -15,6 +16,7 @@ type BinOp =
 
 (* Unary operator *)
 type UnaryOp = Not
+
 (* Variable identifiers *)
 type VarName = string
 
@@ -22,7 +24,7 @@ type VarName = string
 type LValue =
     | Var of VarName
     | Lookup of VarName * Exp // array access
-    | Rec of VarName * LValue // only specify part of record to update/manipulate
+    | Rec of VarName * LValue // specify part of record to update/manipulate
 
 (* Expressions *)
 and Exp =
@@ -39,28 +41,37 @@ type UpdateOp =
 
 (* Procedure identifiers *)
 type ProcName = string
+
 (* Statements *)
 type Stmt =
     | Assign of UpdateOp * LValue * Exp
-    | If     of Exp * Stmt * Stmt * Exp // if e1 then s1 else s2 fi e2
-    | DoLoop of Exp * Stmt * Stmt * Exp // from e1 do s1 {loop s2} until e2
+    | If     of Exp * Stmt * Stmt * Exp // IF e1 THEN s1 ELSE s2 FI e2
+    | DoLoop of Exp * Stmt * Stmt * Exp // FROM e1 DO s1 {LOOP s2} UNTIL e2
     | Call   of ProcName
     | Uncall of ProcName
     | Skip
     | Sequence of Stmt list
 
+(* Variable declarations *)
 type VDec =
     | Scalar of VarName * Value
     | Array of VarName * Int
     | RecordD of VarName * VDec list
 
+(* Main procedure *
+ * Consists of zero or more variable declarations and statements *)
 type MainProc =
     | MainProc of VDec list * Stmt list
 
+(* Procedures *
+ * Consists of a name, zero or more variable declarations and statements *)
 type Proc = {
     name : ProcName
     vdecls : VDec list
     stmts : Stmt list
 }
 
-type Program = | Program of MainProc * Proc list
+(* A program is a main procedure and zero or more procedures *)
+type Program =
+    | Program of MainProc * Proc list
+
