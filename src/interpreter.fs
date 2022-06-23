@@ -26,12 +26,11 @@ type RunError =
     | ErrArg of string
 
 module Computation =
-    // Reader monad. Function from store/env to value, where value is Result<Value,RunError>
-    // Computation: Reader monad with value of Result tupled with store (:= VarEnv)
+    // Computation: Reader/ monad with value of Result tupled with store (:= VarEnv)
     type Comp<'a> = ((ProcEnv * VarEnv) -> (Result<'a, RunError> * VarEnv))
 
     let run (m : Comp<'a>) env = m env //Result<'a, RunError> * VarEnv>) env = m env
-    let ret x = fun (_, varEnv) -> (Ok x, varEnv)
+    let ret (x : 'a) = fun (_, varEnv) -> (Ok x, varEnv)
     let bind (m : Comp<'a>) (f : 'a -> Comp<'b>) : Comp<'b> =
         fun (procEnv, varEnv) ->
             match run m (procEnv, varEnv) with // run m in env to get monadic value
@@ -44,14 +43,12 @@ module Computation =
     let ask : Comp<Env> = fun (penv, venv) -> (Ok (penv, venv), venv)
     let put (venv : VarEnv) : Comp<unit> = fun _ ->  (Ok (), venv)
     let get : Comp<VarEnv> = fun (_, venv) -> (Ok venv, venv)
-    let sequence (c1 : Comp<unit>) (c2: Comp<'a>) : Comp<'a> =
-        c1 >>= fun _ -> c2
+    let sequence (c1 : Comp<unit>) (c2: Comp<'a>) : Comp<'a> = c1 >>= fun _ -> c2
     let ( *>) = sequence
 
     let signalError (re : RunError) : Comp<'a> =
         fun (_, varEnv) -> (Error re, varEnv)
 
-    // rekursivt lookup med lv'
     let rec lookup (lv: LValue') (varEnv: VarEnv) : Result<Value, RunError> =
         match lv with
         | Var' vname ->
@@ -69,7 +66,6 @@ module Computation =
             match Map.tryFind rname varEnv with
             | Some (Record recEnv) -> lookup lv' recEnv
             | _ -> Error <| ErrVarName rname
-
 
     let lookupVar (lv: LValue') : Comp<Value> =
         fun (procEnv, varEnv) ->
@@ -159,8 +155,6 @@ let rec evalExp (ex : Exp) : Comp<Value> =
             | Error err -> return! signalError <| ErrArg err }
 
 and evalLVal lv =
-    // 1. find lv'
-    // 2. lookupVar using lv'
     constructlv' lv >>= fun lv' ->
         lookupVar lv'
 
