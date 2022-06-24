@@ -1,7 +1,7 @@
 module AST
 
 (* Values *)
-type Int = int32
+type Int = uint32
 type Value =
     | Int of Int
     | True
@@ -55,7 +55,7 @@ type Stmt =
 (* Variable declarations *)
 type VDec =
     | Scalar of VarName * Value
-    | Array of VarName * Int
+    | Array of VarName * int
     | RecordD of VarName * VDec list
 
 (* Main procedure *

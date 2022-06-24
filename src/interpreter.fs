@@ -14,7 +14,7 @@ let rec declareVar (vd : VDec) (varEnv : VarEnv) : VarEnv =
         let varEnv' = Map.add vname (Val value) varEnv
         in varEnv'
     | Array (aname, size) ->
-         let initArray s = Array.create s (Int 0)
+         let initArray s = Array.create s (Int 0u)
          let varEnv' = Map.add aname (Arr (initArray size)) varEnv
          in varEnv'
     | RecordD (rname, vds) ->
@@ -96,7 +96,7 @@ let updateStore (lv' : LValue') (v : Value) : Comp<unit> =
 
 let getTruth (value : Value) : bool =
     match value with
-    | Int 0 -> false
+    | Int 0u -> false
     | False -> false
     | _     -> true  // True is true and all integers != 0 are true
 
@@ -106,11 +106,11 @@ let evalBinOps (op : BinOp) (v1 : Value) (v2 : Value) : Result<Value,ErrorMsg> =
     | Sub, (Int v1), (Int v2) -> Ok <| Int (v1 - v2)
     | Mul, (Int v1), (Int v2) -> Ok <| Int (v1 * v2)
     | Div, (Int v1), (Int v2) ->
-        if v2 = 0
+        if v2 = 0u
         then Error "Division by 0 is undefined"
         else Ok <| Int (v1 / v2)
     | Mod, (Int v1), (Int v2) ->
-        if v2 = 0
+        if v2 = 0u
         then Error "Modulo by 0 is undefined"
         else Ok <| Int (v1 % v2)
     | Gt,  (Int v1), (Int v2) -> Ok <| if v1 > v2 then True else False
@@ -155,7 +155,7 @@ and constructlv' (lv : LValue) : Comp<LValue'> =
     | Var vname -> Comp { return Var' vname }
     | Lookup (aname, ex) ->
         evalExp ex >>= function
-            | Int index -> Comp { return Lookup' (aname, index) }
+            | Int index -> Comp { return Lookup' (aname, int index) }
             | _ -> signalError <| ErrArg "Not an index for arrays"
     | Rec (rname, rlv) ->
         constructlv' rlv >>= fun lv' ->
@@ -169,7 +169,7 @@ let getIndex (lv: LValue) : Comp<int option> =
             match lv with
             | Lookup (_, e) ->
                 match run (evalExp e) (procEnv,varEnv) with
-                | Ok (Int i),_ -> Ok <| Some i
+                | Ok (Int i),_ -> Ok <| Some (int i)
                 | Error err,_ -> Error <| err
                 | _ -> Error <| ErrArg "Not an index for arrays"
             | Var _ -> Ok None
