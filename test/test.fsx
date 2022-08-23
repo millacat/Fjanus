@@ -169,14 +169,14 @@ let vd_ismax = [
     Scalar ("max", Int 0u)
 ]
 
-let add10Max  = Assign (AddEq, Var "max", Const (Int 10u))
+let add10Max  = Assign (AddEq, Var "max", Const (Int 6u))
 let e1_iEq0   = BinOp (Eq, LVal (Var "i"), Const (Int 0u))
 let e2_sGtMax = BinOp (GEq, LVal (Var "s"), LVal (Var "max"))
 let s1 = Assign (AddEq, Var "i", Const (Int 1u))
 let s2 = Assign (AddEq, Var "s", LVal (Var "i"))
 let doLoop = DoLoop (e1_iEq0, s1, s2, e2_sGtMax)
 let pdoFull = Program ((MainProc (vd_ismax, [add10Max; doLoop])), [])
-runProgram pdoFull |> prn "int i; int s; int max = 10;\n# FROM i=0 DO s += 1 LOOP s += i UNTIL s > max;"
+runProgram pdoFull |> prn "int i; int s; int max = 10;\n# FROM i=0 DO s += 1 LOOP s += i UNTIL s >= max;"
 
 printfn "\nCALL\n"
 let procsAdd = [ {name = "p"; vdecls = [Scalar ("y", Int 0u)]; stmts = [upAddx11] } ]
@@ -190,8 +190,8 @@ printfn "\nUNCALL\n"
 let pUncall = Program (MainProc (vd, [upAddx11; Uncall "p"]), procsAdd)
 runProgram pUncall |> prn "x += 11; Uncall p"
 
-let add15s = Assign (AddEq, Var "s", Const (Int 10u))
-let add6i  = Assign (AddEq, Var "i", Const (Int 5u))
+let add15s = Assign (AddEq, Var "s", Const (Int 6u))
+let add6i  = Assign (AddEq, Var "i", Const (Int 4u))
 let procLoop = [ {name = "pLoop"; vdecls = []; stmts = [doLoop] } ]
 let pUncallMax = Program (MainProc (vd_ismax, [add10Max; add15s; add6i; Uncall "pLoop"]), procLoop)
 runProgram pUncallMax |> prn "i += 5; s += 10; max += 10;\n# Uncall DoLoop"
@@ -200,7 +200,7 @@ runProgram pUncallMax |> prn "i += 5; s += 10; max += 10;\n# Uncall DoLoop"
 let r = RecordD ("r",
                  [ Scalar ("y", Int 2u);
                    Array ("a", 4);
-                   RecordD ("rinternal", [Scalar ("y", Int 5u)])
+                   RecordD ("rinternal", [Scalar ("y", Int 0u)])
                  ])
 let vdsrec = r::vds
 let prec = Program (MainProc (vdsrec, []), [])
@@ -211,5 +211,7 @@ let precAdd = Program (MainProc (vdsrec, [addRecRecVar]), [])
 runProgram precAdd |> prn "r.rinternal.y += 10;"
 
 let procRec = [ {name = "p"; vdecls = []; stmts = [addRecRecVar] } ]
-let pUncallRec = Program (MainProc (vdsrec, [Uncall "p"]), procRec)
-runProgram pUncallRec |> prn "Uncall p; (p := r.rinternal.y += 10u);"
+let pUncallRec = Program (MainProc (vdsrec, [Call "p"; Uncall "p"]), procRec)
+runProgram pUncallRec
+|> prn "(procedure p = r.rinternal.y += 10u); call p; uncall p;"
+

@@ -113,18 +113,22 @@ let evalBinOps (op : BinOp) (v1 : Value) (v2 : Value) : Result<Value,ErrorMsg> =
         if v2 = 0u
         then Error "Modulo by 0 is undefined"
         else Ok <| Int (v1 % v2)
-    | Gt,  (Int v1), (Int v2) -> Ok <| if v1 > v2 then True else False
-    | Lt,  (Int v1), (Int v2) -> Ok <| if v1 < v2 then True else False
-    | Eq,  (Int v1), (Int v2) -> Ok <| if v1 = v2 then True else False
-    | NEq, (Int v1), (Int v2) -> Ok <| if v1 <> v2 then True else False
-    | GEq, (Int v1), (Int v2) -> Ok <| if v1 >= v2 then True else False
-    | LEq, (Int v1), (Int v2) -> Ok <| if v1 <= v2 then True else False
+    | Gt,  (Int v1), (Int v2) -> Ok <| if v1 > v2 then (Int 1u) else (Int 0u) //True else False
+    | Lt,  (Int v1), (Int v2) -> Ok <| if v1 < v2 then (Int 1u) else (Int 0u) //True else False
+    | Eq,  (Int v1), (Int v2) -> Ok <| if v1 = v2 then (Int 1u) else (Int 0u) //True else False
+    | NEq, (Int v1), (Int v2) -> Ok <| if v1 <> v2 then (Int 1u) else (Int 0u) //True else False
+    | GEq, (Int v1), (Int v2) -> Ok <| if v1 >= v2 then (Int 1u) else (Int 0u) //True else False
+    | LEq, (Int v1), (Int v2) -> Ok <| if v1 <= v2 then (Int 1u) else (Int 0u) //True else False
     | BitAnd, (Int v1), (Int v2) -> Ok <| Int (v1 &&& v2)
     | BitOr,  (Int v1), (Int v2) -> Ok <| Int (v1 ||| v2)
     | Xor,    (Int v1), (Int v2) -> Ok <| Int (v1 ^^^ v2)
     | LogAnd, True,  True  -> Ok True
+    | LogAnd, (Int v1), (Int v2) ->
+        Ok <| if v1 <> 0u && v2 <> 0u then (Int 1u) else (Int 0u) //True else False
     | LogAnd, _,     _     -> Ok False
     | LogOr,  False, False -> Ok False
+    | LogOr, (Int v1), (Int v2) ->
+        Ok <| if v1 <> 0u || v2 <> 0u then (Int 1u) else (Int 0u) //True else False
     | LogOr,  _,     _     -> Ok True
     | op, v1, v2 -> Error <| sprintf "Unvalid operation: (%A) %A (%A)" v1 op v2
 
@@ -137,7 +141,8 @@ let rec evalExp (ex : Exp) : Comp<Value> =
             match! evalExp ex' with
             | True  -> return False
             | False -> return True
-            | _ -> return! signalError <| ErrArg "Not a bool value" }
+            | Int 0u -> return Int 1u
+            | Int _ -> return Int 0u }
     | BinOp (bOp, ex1, ex2) ->
         Comp {
             let! v1 = evalExp ex1
@@ -182,7 +187,7 @@ let getVarName = function
     | Rec (rname,_) -> rname
 
 
-let rec evalStmts (stmts : Stmt list) : Comp<unit> =
+let rec executeStmts (stmts : Stmt list) : Comp<unit> =
     match stmts with
     | [] -> Comp { return () }
     | s::ss ->
@@ -194,7 +199,7 @@ let rec evalStmts (stmts : Stmt list) : Comp<unit> =
             lookupVar var2' >>= fun value2 ->
             updateStore var1' value2 *>
             updateStore var2' value1 *>
-            evalStmts ss
+            executeStmts ss
         | Assign (Swap, _, _) -> signalError <| ErrArg "Can only swap variables"
 
         | Assign (updateOp, lv, e) -> // (+) (-)
@@ -206,21 +211,21 @@ let rec evalStmts (stmts : Stmt list) : Comp<unit> =
             | Ok newVal ->
                 constructlv' lv >>= fun v1' ->
                 updateStore v1' newVal *>
-                evalStmts ss
+                executeStmts ss
 
         | If (e1, s1, s2, e2) -> Comp {
             let! test = evalExp e1
             if getTruth test
-            then do! evalStmts [s1]
+            then do! executeStmts [s1]
                  let! assertion = evalExp e2
                  if getTruth assertion
-                 then return! evalStmts ss
+                 then return! executeStmts ss
                  else return! signalError <| ErrConditional "Assertion in if-statement should be True"
-            else do! evalStmts [s2]
+            else do! executeStmts [s2]
                  let! assertion = evalExp e2
                  if getTruth assertion
                  then return! signalError <| ErrConditional "Assertion in if-statement should be False"
-                 else return! evalStmts ss
+                 else return! executeStmts ss
             }
 
         | DoLoop (e1, s1, s2, e2) ->
@@ -228,37 +233,35 @@ let rec evalStmts (stmts : Stmt list) : Comp<unit> =
             if not (getTruth test)
             then signalError <| ErrConditional "Entry test in do loop is false"
             else
-                evalStmts [s1] >>= fun _ ->
+                executeStmts [s1] >>= fun _ ->
 
                 let rec doWhile s1 s2 e2 e1 =
                     evalExp e2 >>= fun assertion ->
                     if not (getTruth assertion)
-                    then evalStmts [s2] >>= fun _ ->
+                    then executeStmts [s2] >>= fun _ ->
                          evalExp e1 >>= fun test' ->
                          if not (getTruth test')
-                         then evalStmts [s1] >>= fun _ -> doWhile s1 s2 e2 e1
+                         then executeStmts [s1] >>= fun _ -> doWhile s1 s2 e2 e1
                          else signalError <| ErrConditional "Test in do loop is true after entry"
-                    else evalStmts ss
+                    else executeStmts ss
 
                 doWhile s1 s2 e2 e1
         | Call procName ->
             lookupProc procName >>= fun proc ->
             execute' proc.stmts proc.vdecls *>
-            evalStmts ss
+            executeStmts ss
 
         | Uncall procName ->
             lookupProc procName >>= fun proc ->
-            let invertedStmts =
-                List.rev proc.stmts
-                |> List.map StatementInverter.invert
+            let invertedStmts = StatementInverter.invert proc.stmts
             execute' invertedStmts proc.vdecls *>
-            evalStmts ss
+            executeStmts ss
 
         | Skip -> Comp { return () }
-        | Sequence ss -> evalStmts ss
+        | Sequence ss -> executeStmts ss
 
 and execute' stmts = function
-    | [] -> evalStmts stmts
+    | [] -> executeStmts stmts
     | vd::vds -> declareVarsInStore vd *> execute' stmts vds
 
 let execute (MainProc (vardecls, stmts) : MainProc) : Comp<_> =
