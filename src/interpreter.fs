@@ -280,11 +280,11 @@ let initProcedureEnv procs : Result<ProcEnv, RunError> =
     init initPartEnv procs
 
 let runProgram (Program (main, procs) : Program) = //: (RunError option * VarEnv) =
-        match initProcedureEnv procs with
-        | Ok procEnv ->
-            let env = (procEnv, initPartEnv) in
-            match run (execute main) env with // get monadic value
-            | (Ok _,  store) -> (None, store |> Map.toList)
-            | (Error err, store) -> (Some err, store |> Map.toList)
-        | Error err -> (Some err, initPartEnv |> Map.toList)
+    match initProcedureEnv procs with
+    | Ok procEnv ->
+        let env = (procEnv, initPartEnv) in
+        match run (execute main) env with // get monadic value
+        | (Ok _,  store) -> (None, store |> Map.toList)
+        | (Error err, store) -> (Some err, store |> Map.toList)
+    | Error err -> (Some err, initPartEnv |> Map.toList)
 
